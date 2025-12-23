@@ -180,7 +180,7 @@ jobs:
 
           # Pull the Armbian Docker image
           docker run -d --privileged \
-              --name armbian-ophub \
+              --name armbian-puppywang \
               -v /builder/compile-kernel:/opt/kernel/compile-kernel \
               -v /builder/ccache:/root/.ccache \
               -v /etc/localtime:/etc/localtime:ro \
@@ -216,7 +216,7 @@ jobs:
             kernel-mainline-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: puppywang/amlogic-s9xxx-armbian@main
         if: ${{ steps.pull.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
