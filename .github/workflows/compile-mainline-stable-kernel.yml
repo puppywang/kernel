@@ -8,6 +8,7 @@ name: Compile mainline stable kernel
 
 on:
   repository_dispatch:
+    types: [linux-source-updated]
   workflow_dispatch:
     inputs:
       kernel_source:
@@ -107,7 +108,24 @@ jobs:
     runs-on: ubuntu-24.04-arm
     if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
+    env:
+      KERNEL_SOURCE: ${{ github.event.client_payload.repo || inputs.kernel_source || 'puppywang' }}
+      KERNEL_VERSION: ${{ github.event.client_payload.branch || inputs.kernel_version || '6.12.y' }}
+      KERNEL_AUTO: ${{ github.event.client_payload.auto || inputs.kernel_auto || true }}
+      DELETE_SOURCE: ${{ inputs.delete_source || true }}
+      KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
+      KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
+      CCACHE_CLEAR: ${{ inputs.ccache_clear || false }}
+      DOCKER_IMAGE: ${{ inputs.docker_image || 'trixie' }}
+      KERNEL_SIGN: ${{ inputs.kernel_sign || '-puppywang' }}
+      KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
+
     steps:
+      - name: Print source info
+        run: |
+          echo "Triggered by repo: ${{ env.KERNEL_SOURCE }}"
+          echo "Source SHA: ${{ github.event.client_payload.sha }}"
+          echo "Branch: ${{ env.KERNEL_VERSION }}"
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -168,7 +186,7 @@ jobs:
           sudo newgrp docker
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Pull Docker Image [ ${{ inputs.docker_image }} ]
+      - name: Pull Docker Image [ ${{ env.DOCKER_IMAGE }} ]
         id: pull
         working-directory: /builder
         if: ${{ steps.install.outputs.status }} == 'success' && !cancelled()
@@ -187,7 +205,7 @@ jobs:
               -v /etc/timezone:/etc/timezone:ro \
               -e CCACHE_DIR=/root/.ccache \
               --restart=always \
-              ophub/armbian-${{ inputs.docker_image }}:arm64
+              ophub/armbian-${{ env.DOCKER_IMAGE }}:arm64
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -196,7 +214,7 @@ jobs:
         if: ${{ steps.pull.outputs.status }} == 'success' && !cancelled()
         run: |
           # Get the latest source hash from the kernel repository
-          api_url="https://api.github.com/repos/${{ inputs.kernel_source }}/linux-${{ inputs.kernel_version }}/git/ref/heads/main"
+          api_url="https://api.github.com/repos/${{ env.KERNEL_SOURCE }}/linux-${{ env.KERNEL_VERSION }}/git/ref/heads/main"
           source_hash=$(curl -fsSL -m 20 \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -211,24 +229,24 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /builder/ccache
-          key: kernel-mainline-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-${{ env.source_hash }}
+          key: kernel-mainline-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-${{ env.source_hash }}
           restore-keys: |
-            kernel-mainline-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
+            kernel-mainline-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-
 
-      - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
+      - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
         uses: puppywang/amlogic-s9xxx-armbian@main
         if: ${{ steps.pull.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
-          kernel_source: ${{ inputs.kernel_source }}
-          kernel_version: ${{ inputs.kernel_version }}
-          kernel_auto: ${{ inputs.kernel_auto }}
-          delete_source: ${{ inputs.delete_source }}
-          kernel_package: ${{ inputs.kernel_package }}
-          kernel_toolchain: ${{ inputs.kernel_toolchain }}
-          kernel_sign: ${{ inputs.kernel_sign }}
-          kernel_config: ${{ inputs.kernel_config }}
-          ccache_clear: ${{ inputs.ccache_clear }}
+          kernel_source: ${{ env.KERNEL_SOURCE }}
+          kernel_version: ${{ env.KERNEL_VERSION }}
+          kernel_auto: ${{ env.KERNEL_AUTO }}
+          delete_source: ${{ env.DELETE_SOURCE }}
+          kernel_package: ${{ env.KERNEL_PACKAGE }}
+          kernel_toolchain: ${{ env.KERNEL_TOOLCHAIN }}
+          kernel_sign: ${{ env.KERNEL_SIGN }}
+          kernel_config: ${{ env.KERNEL_CONFIG }}
+          ccache_clear: ${{ env.CCACHE_CLEAR }}
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
