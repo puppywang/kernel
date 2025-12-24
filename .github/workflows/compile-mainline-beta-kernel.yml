@@ -8,6 +8,7 @@ name: Compile mainline beta kernel
 
 on:
   repository_dispatch:
+    types: [linux-source-updated-mainline-beta]
   workflow_dispatch:
     inputs:
       kernel_source:

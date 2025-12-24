@@ -8,6 +8,7 @@ name: Compile rockchip rk35xx kernel
 
 on:
   repository_dispatch:
+    types: [linux-source-updated-rockchip-rk35xx]
   workflow_dispatch:
     inputs:
       kernel_source:

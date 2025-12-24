@@ -8,6 +8,7 @@ name: Compile rockchip rk3588 kernel
 
 on:
   repository_dispatch:
+    types: [linux-source-updated-rockchip-rk3588]
   workflow_dispatch:
     inputs:
       kernel_source:

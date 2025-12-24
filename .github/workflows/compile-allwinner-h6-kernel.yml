@@ -8,6 +8,7 @@ name: Compile allwinner h6 kernel
 
 on:
   repository_dispatch:
+    types: [linux-source-updated-allwinner-h6]
   workflow_dispatch:
     inputs:
       kernel_source:
