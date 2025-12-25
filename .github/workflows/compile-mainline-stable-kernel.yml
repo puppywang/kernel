@@ -248,6 +248,22 @@ jobs:
           kernel_config: ${{ env.KERNEL_CONFIG }}
           ccache_clear: ${{ env.CCACHE_CLEAR }}
 
+      - name: Trigger Armbian Build
+        if: ${{ steps.pull.outputs.status }} == 'success' && !cancelled()
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.ARMBIAN_REPO_TOKEN }}" \
+            https://api.github.com/repos/puppywang/amlogic-s9xxx-armbian/dispatches \
+            -d '{
+              "event_type": "kernel-build-completed-stable",
+              "client_payload": {
+                "armbian_kernel": "${{ env.KERNEL_VERSION }}",
+                "kernel_repo": "${{ github.repository }}",
+                "kernel_usage": "stable"
+              }
+            }'
+
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
         if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
