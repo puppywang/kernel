@@ -264,6 +264,42 @@ jobs:
               }
             }'
 
+      - name: Merge with existing release (incremental update)
+        if: ${{ env.KERNEL_PACKAGE != 'all' && env.PACKAGED_STATUS == 'success' }}
+        run: |
+          # Get kernel version from output files
+          KERNEL_PKG=$(ls ${{ env.PACKAGED_OUTPUTPATH }}/*.tar.gz 2>/dev/null | head -1)
+          if [[ -z "$KERNEL_PKG" ]]; then
+            echo "No kernel package found, skipping merge"
+            exit 0
+          fi
+          
+          KERNEL_VER=$(basename "$KERNEL_PKG" .tar.gz)
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/kernel_stable/${KERNEL_VER}.tar.gz"
+          
+          echo "Attempting to merge with existing release: ${RELEASE_URL}"
+          
+          mkdir -p /tmp/merge_pkg
+          cd /tmp/merge_pkg
+          
+          # Download existing package
+          if curl -fsSL -o existing.tar.gz "$RELEASE_URL" 2>/dev/null; then
+            echo "Downloaded existing package, extracting..."
+            tar -xzf existing.tar.gz
+            
+            # Extract new package (overwrites existing files)
+            echo "Merging new files..."
+            tar -xzf "$KERNEL_PKG"
+            
+            # Repack
+            echo "Repacking merged package..."
+            tar -czf "$KERNEL_PKG" ${KERNEL_VER}/
+            
+            echo "Merge complete!"
+          else
+            echo "No existing package found or download failed, using new package as-is"
+          fi
+
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
         if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
