@@ -227,6 +227,28 @@ jobs:
           kernel_config: ${{ inputs.kernel_config }}
           ccache_clear: ${{ inputs.ccache_clear }}
 
+      - name: Merge with existing release (incremental update)
+        if: ${{ inputs.kernel_package != 'all' && env.PACKAGED_STATUS == 'success' }}
+        run: |
+          KERNEL_PKG=$(ls ${{ env.PACKAGED_OUTPUTPATH }}/*.tar.gz 2>/dev/null | head -1)
+          if [[ -z "$KERNEL_PKG" ]]; then
+            echo "No kernel package found, skipping merge"
+            exit 0
+          fi
+          KERNEL_VER=$(basename "$KERNEL_PKG" .tar.gz)
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/kernel_rk35xx/${KERNEL_VER}.tar.gz"
+          echo "Attempting to merge with existing release: ${RELEASE_URL}"
+          mkdir -p /tmp/merge_pkg && cd /tmp/merge_pkg
+          if curl -fsSL -o existing.tar.gz "$RELEASE_URL" 2>/dev/null; then
+            echo "Downloaded existing package, merging..."
+            tar -xzf existing.tar.gz
+            tar -xzf "$KERNEL_PKG"
+            tar -czf "$KERNEL_PKG" ${KERNEL_VER}/
+            echo "Merge complete!"
+          else
+            echo "No existing package found, using new package as-is"
+          fi
+
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
         if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
