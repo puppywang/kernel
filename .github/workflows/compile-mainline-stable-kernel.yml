@@ -274,28 +274,39 @@ jobs:
             exit 0
           fi
           
+          # Use absolute path
+          KERNEL_PKG=$(realpath "$KERNEL_PKG")
           KERNEL_VER=$(basename "$KERNEL_PKG" .tar.gz)
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/kernel_stable/${KERNEL_VER}.tar.gz"
           
           echo "Attempting to merge with existing release: ${RELEASE_URL}"
+          echo "Output package: ${KERNEL_PKG}"
           
-          mkdir -p /tmp/merge_pkg
-          cd /tmp/merge_pkg
+          MERGE_DIR="/tmp/merge_pkg_$$"
+          mkdir -p "${MERGE_DIR}"
           
           # Download existing package
-          if curl -fsSL -o existing.tar.gz "$RELEASE_URL" 2>/dev/null; then
+          if curl -fsSL -o "${MERGE_DIR}/existing.tar.gz" "$RELEASE_URL" 2>/dev/null; then
             echo "Downloaded existing package, extracting..."
+            cd "${MERGE_DIR}"
             tar -xzf existing.tar.gz
             
             # Extract new package (overwrites existing files)
             echo "Merging new files..."
             tar -xzf "$KERNEL_PKG"
             
-            # Repack
+            # Repack to a temp file first
             echo "Repacking merged package..."
-            tar -czf "$KERNEL_PKG" ${KERNEL_VER}/
+            tar -czf merged.tar.gz ${KERNEL_VER}/
+            
+            # Move back to original location
+            mv merged.tar.gz "$KERNEL_PKG"
             
             echo "Merge complete!"
+            
+            # Cleanup
+            cd /
+            rm -rf "${MERGE_DIR}"
           else
             echo "No existing package found or download failed, using new package as-is"
           fi

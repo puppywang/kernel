@@ -235,16 +235,21 @@ jobs:
             echo "No kernel package found, skipping merge"
             exit 0
           fi
+          KERNEL_PKG=$(realpath "$KERNEL_PKG")
           KERNEL_VER=$(basename "$KERNEL_PKG" .tar.gz)
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/kernel_rk3588/${KERNEL_VER}.tar.gz"
           echo "Attempting to merge with existing release: ${RELEASE_URL}"
-          mkdir -p /tmp/merge_pkg && cd /tmp/merge_pkg
-          if curl -fsSL -o existing.tar.gz "$RELEASE_URL" 2>/dev/null; then
+          MERGE_DIR="/tmp/merge_pkg_$$"
+          mkdir -p "${MERGE_DIR}"
+          if curl -fsSL -o "${MERGE_DIR}/existing.tar.gz" "$RELEASE_URL" 2>/dev/null; then
             echo "Downloaded existing package, merging..."
+            cd "${MERGE_DIR}"
             tar -xzf existing.tar.gz
             tar -xzf "$KERNEL_PKG"
-            tar -czf "$KERNEL_PKG" ${KERNEL_VER}/
+            tar -czf merged.tar.gz ${KERNEL_VER}/
+            mv merged.tar.gz "$KERNEL_PKG"
             echo "Merge complete!"
+            cd / && rm -rf "${MERGE_DIR}"
           else
             echo "No existing package found, using new package as-is"
           fi
